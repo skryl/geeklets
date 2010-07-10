@@ -1,0 +1,45 @@
+#!/usr/bin/env ruby
+
+require 'date'
+require 'open3'
+
+DAYS = 7
+DATES = (Date.today..Date.today + DAYS)
+ICAL_CMD = "/Users/rut216/bin/icalBuddy -nrd -eep notes,location -nc -b '' -ss '' -ps '| |' eventsFrom:'<date1>' to:'<date2>' 2>/dev/null"
+GOOGLE_CMD = "/usr/local/bin/google calendar list 'title' --delimiter ':' --cal '.*' --date <date>"
+
+#Until I figure out how to have googlecl sort events by date Ill just use
+#threads to speed things up... this is all to avoid parsing :'(
+threads = []
+
+events = {}
+DATES.each do |d|
+  threads << Thread.new(d, events) do |d, events|
+    date = d.to_s
+    date2 = (d + 1).to_s
+    time = "00:00:00 -0500"
+
+    ical_cmd =  ICAL_CMD.gsub("<date1>", "#{date} #{time}").gsub("<date2>", "#{date2} #{time}") 
+    google_cmd = GOOGLE_CMD.gsub("<date>", date)
+    ical_events =  `#{ical_cmd}`.split("\n") 
+    google_events = `#{google_cmd}`.split("\n")
+
+    #Cleanup output
+    #
+    #remove calendar title lines and empty lines
+    google_events.reject! {|l| l.strip =~ /\A\[.*\]\Z/ || l.strip.empty? }
+                                                                                                                                                          
+    #Now that the data is homogenous, we can merge the calendar events into a
+    #single set
+    all_events = google_events + ical_events
+    events[d] = all_events
+  end
+end
+
+threads.each {|t| t.join}
+
+events = events.sort {|event1, event2| event1[0] <=> event2[0]}
+events.each do |(date, all_events)| 
+  puts date 
+  all_events.each {|e| puts " -#{e}"}
+end

@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'appscript'
+
+class GeekFocus
+
+  def initialize
+    @app = Appscript.app("OmniFocus")
+    @doc = @app.default_document
+    @all_ctx = @doc.context.get
+  end
+
+  def tasks
+      @all_ctx.inject("") do |list, ctx| 
+        list << "#{ctx.name.get}\n"
+        ctx.available_tasks.get.each do |task|
+          list << " - #{task.name.get}\n"
+        end
+        list
+      end
+  end
+end
+
+gf = GeekFocus.new
+puts gf.tasks
